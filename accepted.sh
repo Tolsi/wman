@@ -9,18 +9,19 @@ function accepted () {
     if [ -z "${priority}" ]; then priority=999999; fi
 
     local accepted=()
-    if (( "${priority}" > "0" )); then 
-        local line_index=0
-        
-        while read -r line; do
-            if (( "$line_index" < "$priority" )); then
-                if grep -Fq "$line" "$scanned_file"; then
-                    accepted+=("$line_index:$line")
-                fi
-            fi
-            (( line_index += 1 ))
-        done < aps.conf
-    fi
+	local line_index=0
+	
+	while read -r line; do
+		IFS=$'\t' read -a ap <<< "$line"
+		local SSID="${ap[0]}"
+		local connect_to_better="${ap[1]}"
+		if (( "$line_index" < "$priority" )); then
+			if grep -Fq "$SSID" "$scanned_file"; then
+				accepted+=("$line_index:$SSID:$connect_to_better")
+			fi
+		fi
+		(( line_index += 1 ))
+	done < /etc/wman/aps.conf
     
     declare -p accepted
 }

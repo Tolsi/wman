@@ -8,9 +8,9 @@ Wman can:
 * change wireless networks if current one lost the internet connection, until the internet connection will not be available again
 * disable WiFi if there're not LAN users
 
-# How to install install
+# How to install it
 
-0. To run wman you need to install packages: bash, nmap, iwinfo, 
+0. To run wman you need to install dependencies: bash, nmap, iwinfo
 1. Move wman folder to any path in your router (for example in /root)
 2. Move etc folder to /etc
 3. Insert the `wifi-device` section from your `/etc/config/wireless.conf` to the head of `/etc/wman/wireless.conf.template`

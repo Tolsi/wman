@@ -1,9 +1,9 @@
 #!/bin/bash
 
 function check_connection() {
-    local count=4                                # Maximum number to try.
+    local count=3                                # Maximum number to try.
     while [[ $count -ne 0 ]] ; do
-        ping -c 1 -W 2 -I "$1" 8.8.8.8 > /dev/null       # Try once.
+        ping -c 1 -W 5 -I "$1" 8.8.8.8 > /dev/null       # Try once.
         local rc=$?
         if [[ $rc -eq 0 ]] ; then
             count=1                         # If okay, flag to exit loop.

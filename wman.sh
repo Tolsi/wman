@@ -10,15 +10,27 @@
 #variables
 wlan_interface="wlan0"
 wan_interface="br-wan"
-wait_connect_time=10
-recheck_time=15
+wait_connect_time=15
+recheck_time=20
 aps_without_internet=()
-aps_without_internet_clear=3600
+aps_without_internet_clear=60
+no_clients_shutdown=120
 
-#rm -rf /tmp/wman/
+rm -rf /tmp/wman/
 mkdir /tmp/wman/
 touch /tmp/wman/current_ap_prioriry
 touch /tmp/wman/aps_without_internet_i
+echo 0 > /tmp/wman/aps_without_internet_i
+echo 0 > /tmp/wman/no_clients_i
+
+function join() {
+    # $1 is return variable name
+    # $2 is sep
+    # $3... are the elements to join
+    local retname=$1 sep=$2 ret=$3
+    shift 3 || shift $(($#))
+    printf -v "$retname" "%s" "$ret${@/#/$sep}"
+}
 
 function log(){
 	local msg=$1
@@ -27,49 +39,64 @@ function log(){
 }
 
 function try_connect_to_accepted(){
-	# пробуем точки, пока у нас нет интернета
+	# п©я─п╬п╠я┐п╣п╪ я┌п╬я┤п╨п╦, п©п╬п╨п╟ я┐ п╫п╟я│ п╫п╣я┌ п╦п╫я┌п╣я─п╫п╣я┌п╟
+	join aps_string "," "${accepted[@]}"
+	log "Accepted APS (${#accepted[@]}): ${aps_string}"
 	for ap_string in "${accepted[@]}"
 	do
-		IFS=':' read -a ap <<< "$ap_string"
+		IFS='|' read -a ap <<< "$ap_string"
 		local priority="${ap[0]}"
 		local BSSID="${ap[1]}"
 		local connect_to_better="${ap[2]}"
-		if test ${aps_without_internet[$BSSID]+_}; then
+		if [[ ${aps_without_internet[*]} =~ ${BSSID} ]]; then
 			local aps_without_internet_i=$(</tmp/wman/aps_without_internet_i)
 			if (( "$aps_without_internet_i" >= "$aps_without_internet_clear" )); then
 				aps_without_internet=()
-				echo 0 > /tmp/wl/aps_without_internet_i
+				echo 0 > /tmp/wman/aps_without_internet_i
 			else
-				# TODO зависит от количества точек без интернета
-				echo "$(( aps_without_internet_i + 1 ))" > /tmp/wl/aps_without_internet_i
+				# TODO п╥п╟п╡п╦я│п╦я┌ п╬я┌ п╨п╬п╩п╦я┤п╣я│я┌п╡п╟ я┌п╬я┤п╣п╨ п╠п╣п╥ п╦п╫я┌п╣я─п╫п╣я┌п╟
+				echo "$(( aps_without_internet_i + 1 ))" > /tmp/wman/aps_without_internet_i
+				log "without internet i: '$aps_without_internet_i' Value to reset: '$aps_without_internet_clear'"
 			fi
 		else
-			# подключаемся к точке
+			log "trying $ap_string"
+			# п©п╬п╢п╨п╩я▌я┤п╟п╣п╪я│я▐ п╨ я┌п╬я┤п╨п╣
 			connect_to_ap "$BSSID"
-			# ждём подключения
+			# п╤п╢я▒п╪ п©п╬п╢п╨п╩я▌я┤п╣п╫п╦я▐
 			sleep "$wait_connect_time"
-			# проверка соединения
+			# п©я─п╬п╡п╣я─п╨п╟ я│п╬п╣п╢п╦п╫п╣п╫п╦я▐
 			if (( $( check_connection "$wlan_interface" ) == 1 )); then
 				log "Connection to internet restored! Connected to $BSSID with priority $priority"
 				echo "$priority" > /tmp/wman/current_ap_prioriry
 				break
 			else
-				echo "$BSSID hasnt internet!"
+				log "$BSSID hasnt internet!"
 				aps_without_internet+=("$BSSID")
 			fi
 		fi
 	done
+	if (( $( check_connection "$wlan_interface" ) == 0 )); then
+		log "No internet in accepted APS. Retry"
+		aps_without_internet=()
+		echo 0 > /tmp/wman/aps_without_internet_i
+	fi
 }
 
 function main()
 {
-	# если нет wan подключения
+	# п╣я│п╩п╦ п╫п╣я┌ wan п©п╬п╢п╨п╩я▌я┤п╣п╫п╦я▐
 	if (( $( check_connection "$wan_interface" ) == 0 )); then
 		log "wan interface hasnt internet"
-		# если у нас нет клиентов, то wifi мы выключаем
+		# п╣я│п╩п╦ я┐ п╫п╟я│ п╫п╣я┌ п╨п╩п╦п╣п╫я┌п╬п╡, я┌п╬ wifi п╪я▀ п╡я▀п╨п╩я▌я┤п╟п╣п╪
 		if (( $( lan_clients_count ) > 0 )); then
 			log "there are clients in lan"
-			# приоритет текущей точки
+			
+			local no_clients_i=$(</tmp/wman/no_clients_i)
+			if ! [ -z "$no_clients_i" ] && (( "$no_clients_i" > 0 )); then
+				echo 0 > /tmp/wman/no_clients_i
+			fi
+			
+			# п©я─п╦п╬я─п╦я┌п╣я┌ я┌п╣п╨я┐я┴п╣п╧ я┌п╬я┤п╨п╦
 			local current_ap_prioriry=$(</tmp/wman/current_ap_prioriry)
 			if (( $( check_connection "$wlan_interface" ) == 0 )); then
 				rm /tmp/wman/current_ap_prioriry
@@ -84,9 +111,9 @@ function main()
 				local current_ap_line=$( sed "$(( $current_ap_prioriry + 1 ))q;d" /etc/wman/aps.conf )
 				IFS=$'\t' read -a ap <<< "$current_ap_line"
 				local connect_to_better="${ap[1]}"
-				# поиск лучших точек отключается
+				# п©п╬п╦я│п╨ п╩я┐я┤я┬п╦я┘ я┌п╬я┤п╣п╨ п╬я┌п╨п╩я▌я┤п╟п╣я┌я│я▐
 				if [[ $connect_to_better == "y" ]]; then
-					#ищем точки, приоритетнее этой
+					#п╦я┴п╣п╪ я┌п╬я┤п╨п╦, п©я─п╦п╬я─п╦я┌п╣я┌п╫п╣п╣ я█я┌п╬п╧
 					log "Trying connect to better"
 					scan "$wlan_interface"
 					eval `accepted $current_ap_prioriry`
@@ -94,16 +121,22 @@ function main()
 				fi
 			fi
 		else
-			log "there are not clients in lan. shutdown wifi"
-			rm /tmp/wman/current_ap_prioriry
-			ifconfig "$wlan_interface" down
+			local no_clients_i=$(</tmp/wman/no_clients_i)
+			if (( "$no_clients_i" >= "$no_clients_shutdown" )); then
+				log "there are not clients in lan. shutdown wifi"
+				rm /tmp/wman/current_ap_prioriry
+				ifconfig "$wlan_interface" down
+			else
+				log "there are not clients in lan. no_clients_i: $no_clients_i"
+				echo "$(( no_clients_i + 1 ))" > /tmp/wman/no_clients_i
+			fi
 		fi
     fi
     
-    #сортировать по силе сигнала
+    #я│п╬я─я┌п╦я─п╬п╡п╟я┌я▄ п©п╬ я│п╦п╩п╣ я│п╦пЁп╫п╟п╩п╟
     #sort -k3nr /tmp/ScannedAPs_Parsed.MP -o /tmp/ScannedAPs_Parsed.MP
     
-    #фильтрация свойств только нужных точек
+    #я└п╦п╩я▄я┌я─п╟я├п╦я▐ я│п╡п╬п╧я│я┌п╡ я┌п╬п╩я▄п╨п╬ п╫я┐п╤п╫я▀я┘ я┌п╬я┤п╣п╨
     #cat /tmp/ScannedAPs_Parsed.MP | grep '7094\|555'
     
     #AP 'ap1' o1:3f:33 Ololo -42 3
@@ -111,6 +144,7 @@ function main()
     #$ap1_connect
 }
 
+ifconfig "$wlan_interface" down
 while [ 1 ]; do
     main
 	sleep $recheck_time

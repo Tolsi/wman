@@ -55,8 +55,8 @@ function scan () {
     local count=$(( $(grep -c Address /tmp/ScannedAPs.MP) - 1 ))
     for index in $(seq 0 $count)
     do
-        echo "${BSS[index]}\`${SSID[index]}\`${SIGNAL[index]}\`${CHAN[index]}" >> "$scan_result"
+        echo "${BSS[index]}|${SSID[index]}|${SIGNAL[index]}|${CHAN[index]}" >> "$scan_result"
     done
 }
 
-scan wlan0
+#scan wlan0

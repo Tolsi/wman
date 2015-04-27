@@ -2,8 +2,9 @@
 
 scanned_file="/tmp/ScannedAPs_Parsed.MP"
 
-#Фильтруем только разрешённые точки с индексом, меньше аргумента (меньше индекс - больше аргумент)
+#п╓п╦п╩я▄я┌я─я┐п╣п╪ я┌п╬п╩я▄п╨п╬ я─п╟п╥я─п╣я┬я▒п╫п╫я▀п╣ я┌п╬я┤п╨п╦ я│ п╦п╫п╢п╣п╨я│п╬п╪, п╪п╣п╫я▄я┬п╣ п╟я─пЁя┐п╪п╣п╫я┌п╟ (п╪п╣п╫я▄я┬п╣ п╦п╫п╢п╣п╨я│ - п╠п╬п╩я▄я┬п╣ п╟я─пЁя┐п╪п╣п╫я┌)
 # priority
+
 function accepted () {
     local priority=$1
     if [ -z "${priority}" ]; then priority=999999; fi
@@ -13,11 +14,11 @@ function accepted () {
 	
 	while read -r line; do
 		IFS=$'\t' read -a ap <<< "$line"
-		local SSID="${ap[0]}"
+		local BSSID="${ap[0]}"
 		local connect_to_better="${ap[1]}"
 		if (( "$line_index" < "$priority" )); then
-			if grep -Fq "$SSID" "$scanned_file"; then
-				accepted+=("$line_index:$SSID:$connect_to_better")
+			if grep -Fq "$BSSID" "$scanned_file"; then
+				accepted+=("$line_index|$BSSID|$connect_to_better")
 			fi
 		fi
 		(( line_index += 1 ))

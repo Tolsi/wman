@@ -1,0 +1,15 @@
+# insert here wifi-device section from your /etc/config/wireless.conf
+# for example:
+#   config wifi-device 'radio0'
+#        option type 'mac80211'
+#        option macaddr '...'
+#        option hwmode '11n'
+#        option channel 'auto'
+#        option noscan '1'
+# ...
+
+config wifi-iface
+	# option 'defaultroute' '1'
+	option device 'radio0'
+	# settings start here
+	<SETTINGS>

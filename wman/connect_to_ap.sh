@@ -26,4 +26,4 @@ function connect_to_ap(){
     fi
 }
 
-#connect_to_ap MAJOR
+#connect_to_ap TEST
